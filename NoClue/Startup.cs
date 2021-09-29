@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.WebSockets;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NoClue {
@@ -42,6 +43,8 @@ namespace NoClue {
             app.Use(async (context, next) => {
                 if (context.WebSockets.IsWebSocketRequest) {
                     WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
+
+                    await ReceiveMessage(webSocket, async (result, buffer) => {});
                 } else {
                     await next();
                 }
@@ -56,6 +59,15 @@ namespace NoClue {
             app.UseEndpoints(endpoints => {
                 endpoints.MapControllers();
             });
+        }
+
+        private async Task ReceiveMessage(WebSocket webSocket, Action<WebSocketReceiveResult, byte[]> handleMessage) {
+            byte[] buffer = new byte[1024 * 4];
+
+            while (webSocket.State == WebSocketState.Open) {
+                WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
+                handleMessage(result, buffer);
+            }
         }
     }
 }
