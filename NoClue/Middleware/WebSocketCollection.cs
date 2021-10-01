@@ -15,5 +15,9 @@ namespace NoClue.Middleware {
         public WebSocket GetWebSocket(Guid uuid) {
             return WebSockets[uuid];
         }
+
+        public bool TryRemoveWebSocket(Guid uuid, out WebSocket result) {
+            return WebSockets.TryRemove(uuid, out result);
+        }
     }
 }
