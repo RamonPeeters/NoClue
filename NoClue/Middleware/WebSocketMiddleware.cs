@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using System;
+using System.Net;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,13 +14,22 @@ namespace NoClue.Middleware {
         }
 
         public async Task InvokeAsync(HttpContext context, RequestDelegate next) {
-            if (context.WebSockets.IsWebSocketRequest) {
-                WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
-                WebSockets.AddWebSocket(webSocket);
-                await ReceiveMessage(webSocket);
+            if (context.Request.Path == "/game") {
+                await Initiate(context);
             } else {
                 await next(context);
             }
+        }
+
+        private async Task Initiate(HttpContext context) {
+            if (!context.WebSockets.IsWebSocketRequest) {
+                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                return;
+            }
+
+            WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
+            WebSockets.AddWebSocket(webSocket);
+            await ReceiveMessage(webSocket);
         }
 
         private async Task ReceiveMessage(WebSocket webSocket) {
