@@ -28,19 +28,24 @@ namespace NoClue.Middleware {
             }
 
             WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
-            WebSockets.AddWebSocket(webSocket);
-            await ReceiveMessage(webSocket);
+            Guid origin = WebSockets.AddWebSocket(webSocket);
+            await ReceiveMessage(origin, webSocket);
         }
 
-        private async Task ReceiveMessage(WebSocket webSocket) {
+        private async Task ReceiveMessage(Guid origin, WebSocket webSocket) {
             byte[] buffer = new byte[1024 * 4];
 
             while (webSocket.State == WebSocketState.Open) {
                 WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                await HandleMessage(result, buffer);
+                await HandleMessage(origin, result, buffer);
             }
         }
 
-        private async Task HandleMessage(WebSocketReceiveResult result, byte[] buffer) {}
+        private async Task HandleMessage(Guid origin, WebSocketReceiveResult result, byte[] buffer) {
+            if (result.MessageType == WebSocketMessageType.Close) {
+                WebSockets.TryRemoveWebSocket(origin, out WebSocket webSocket);
+                await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
+            }
+        }
     }
 }
