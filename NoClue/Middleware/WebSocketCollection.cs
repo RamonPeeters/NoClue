@@ -11,5 +11,9 @@ namespace NoClue.Middleware {
             WebSockets.TryAdd(uuid, webSocket);
             return uuid;
         }
+
+        public WebSocket GetWebSocket(Guid uuid) {
+            return WebSockets[uuid];
+        }
     }
 }
