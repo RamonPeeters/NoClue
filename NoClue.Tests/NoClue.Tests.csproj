@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\NoClue\NoClue.csproj" />
+    <ProjectReference Include="..\NoClue.Core\NoClue.Core.csproj" />
   </ItemGroup>
 
 </Project>
