@@ -19,7 +19,8 @@ namespace NoClue.Tests.Rooms {
 
         [TestMethod]
         public void TryCreate_ReturnsFalse_BecauseThereAreTooManyRooms() {
-            GameRoomCollection rooms = new GameRoomCollection(0);
+            GameRoomCollection rooms = new GameRoomCollection(1);
+            rooms.TryCreate(out _);
             bool successful = rooms.TryCreate(out _);
             Assert.IsFalse(successful);
         }
