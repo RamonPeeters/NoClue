@@ -1,17 +1,15 @@
 ﻿using Microsoft.AspNetCore.Http;
+using NoClue.Core.Rooms;
 using System;
 using System.Net;
 using System.Net.WebSockets;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace NoClue.Middleware {
     public class WebSocketMiddleware : IMiddleware {
-        private readonly WebSocketCollection WebSockets;
+        private static readonly Random ROOM_CODE_RNG = new Random();
 
-        public WebSocketMiddleware(WebSocketCollection webSockets) {
-            WebSockets = webSockets;
-        }
+        private readonly GameRoomCollection Rooms = new GameRoomCollection(CreateRoomCode);
 
         public async Task InvokeAsync(HttpContext context, RequestDelegate next) {
             if (context.Request.Path == "/game") {
@@ -26,26 +24,20 @@ namespace NoClue.Middleware {
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 return;
             }
-
             WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync();
-            Guid origin = WebSockets.AddWebSocket(webSocket);
-            await ReceiveMessage(origin, webSocket);
+            await TryJoin(webSocket);
         }
 
-        private async Task ReceiveMessage(Guid origin, WebSocket webSocket) {
-            byte[] buffer = new byte[1024 * 4];
-
-            while (webSocket.State == WebSocketState.Open) {
-                WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                await HandleMessage(origin, result, buffer);
+        private async Task TryJoin(WebSocket webSocket) {
+            int? code = await Rooms.TryCreate(webSocket);
+            if (!code.HasValue) {
+                return;
             }
+            await Rooms.TryJoin(code.Value, webSocket);
         }
 
-        private async Task HandleMessage(Guid origin, WebSocketReceiveResult result, byte[] buffer) {
-            if (result.MessageType == WebSocketMessageType.Close) {
-                WebSockets.TryRemoveWebSocket(origin, out WebSocket webSocket);
-                await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
-            }
+        private static int CreateRoomCode() {
+            return ROOM_CODE_RNG.Next(100000);
         }
     }
 }

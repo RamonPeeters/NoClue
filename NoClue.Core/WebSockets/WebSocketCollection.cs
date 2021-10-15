@@ -2,9 +2,15 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
 
-namespace NoClue.Middleware {
+namespace NoClue.Core.WebSockets {
     public class WebSocketCollection {
         private readonly ConcurrentDictionary<Guid, WebSocket> WebSockets = new ConcurrentDictionary<Guid, WebSocket>();
+
+        public int Count {
+            get {
+                return WebSockets.Count;
+            }
+        }
 
         public Guid AddWebSocket(WebSocket webSocket) {
             Guid uuid = Guid.NewGuid();

@@ -1,5 +1,9 @@
-﻿using System;
+﻿using NoClue.Core.WebSockets;
+using System;
 using System.Collections.Generic;
+using System.Net.WebSockets;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace NoClue.Core.Rooms {
     public class GameRoomCollection {
@@ -13,15 +17,41 @@ namespace NoClue.Core.Rooms {
             RoomCodeProvider = roomCodeProvider;
         }
 
-        public bool TryCreate(out int code) {
-            int? uniqueCode = GetUniqueCode();
-            if (!uniqueCode.HasValue) {
-                code = 0;
-                return false;
+        public async Task<int?> TryCreate(WebSocket webSocket) {
+            List<byte> bytes = new List<byte>() { 0, 0, 0, 1 };
+
+            int? code = GetUniqueCode();
+            if (!code.HasValue) {
+                bytes.Add(0);
+                await Protocol.SendMessage(webSocket, bytes.ToArray());
+                return null;
             }
-            code = uniqueCode.Value;
-            Rooms.Add(code, new GameRoom());
-            return true;
+
+            Rooms.Add(code.Value, new GameRoom());
+            bytes.Add(1);
+            await Protocol.SendMessage(webSocket, bytes.ToArray());
+            return code;
+        }
+
+        public async Task TryJoin(int code, WebSocket webSocket) {
+            List<byte> bytes = new List<byte>() { 0, 0, 0, 2 };
+
+            if (!Rooms.TryGetValue(code, out GameRoom room)) {
+                bytes.Add((byte)RoomJoinReason.ROOM_NOT_FOUND);
+                await Protocol.SendMessage(webSocket, bytes.ToArray());
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Unable to join room", CancellationToken.None);
+                return;
+            }
+
+            RoomJoinReason reason = room.TryJoin(webSocket, out Guid origin);
+            bytes.Add((byte)reason);
+            await Protocol.SendMessage(webSocket, bytes.ToArray());
+
+            if (reason == RoomJoinReason.SUCCESS) {
+                await room.ReceiveMessage(origin, webSocket);
+            } else {
+                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Unable to join room", CancellationToken.None);
+            }
         }
 
         private int? GetUniqueCode() {
