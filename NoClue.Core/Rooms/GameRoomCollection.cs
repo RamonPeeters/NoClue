@@ -17,20 +17,24 @@ namespace NoClue.Core.Rooms {
             RoomCodeProvider = roomCodeProvider;
         }
 
-        public async Task<int?> TryCreate(WebSocket webSocket) {
+        public async Task TryCreate(WebSocket webSocket) {
             List<byte> bytes = new List<byte>() { 0, 0, 0, 1 };
 
             int? code = GetUniqueCode();
             if (!code.HasValue) {
                 bytes.Add(0);
-                await Protocol.SendMessage(webSocket, bytes.ToArray());
-                return null;
+                await Protocol.SendClosingMessage(webSocket, bytes.ToArray(), "Unable to create room");
+                return;
             }
 
-            Rooms.Add(code.Value, new GameRoom());
+            GameRoom room = GameRoom.Create(webSocket, out Guid owner);
+            Rooms.Add(code.Value, room);
             bytes.Add(1);
+            for (int i = 0; i < 4; i++) {
+                bytes.Add((byte)(code.Value >> ((3 - i) * 8) & 0xFF));
+            }
             await Protocol.SendMessage(webSocket, bytes.ToArray());
-            return code;
+            await room.ReceiveMessage(owner, webSocket);
         }
 
         public async Task TryJoin(int code, WebSocket webSocket) {
@@ -38,8 +42,7 @@ namespace NoClue.Core.Rooms {
 
             if (!Rooms.TryGetValue(code, out GameRoom room)) {
                 bytes.Add((byte)RoomJoinReason.ROOM_NOT_FOUND);
-                await Protocol.SendMessage(webSocket, bytes.ToArray());
-                await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Unable to join room", CancellationToken.None);
+                await Protocol.SendClosingMessage(webSocket, bytes.ToArray(), "Unable to join room");
                 return;
             }
 

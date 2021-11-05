@@ -7,6 +7,11 @@ using System.Threading.Tasks;
 namespace NoClue.Core.Rooms {
     public class GameRoom {
         private readonly WebSocketCollection Connections = new WebSocketCollection();
+        private readonly Guid Owner;
+
+        private GameRoom(WebSocket creator) {
+            Owner = Connections.AddWebSocket(creator);
+        }
 
         public RoomJoinReason TryJoin(WebSocket webSocket, out Guid origin) {
             if (Connections.Count == 6) {
@@ -25,6 +30,12 @@ namespace NoClue.Core.Rooms {
                 WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 await HandleMessage(origin, result, buffer);
             }
+        }
+
+        public static GameRoom Create(WebSocket creator, out Guid owner) {
+            GameRoom room = new GameRoom(creator);
+            owner = room.Owner;
+            return room;
         }
 
         private async Task HandleMessage(Guid origin, WebSocketReceiveResult result, byte[] buffer) {

@@ -29,11 +29,7 @@ namespace NoClue.Middleware {
         }
 
         private async Task TryJoin(WebSocket webSocket) {
-            int? code = await Rooms.TryCreate(webSocket);
-            if (!code.HasValue) {
-                return;
-            }
-            await Rooms.TryJoin(code.Value, webSocket);
+            await Rooms.TryCreate(webSocket);
         }
 
         private static int CreateRoomCode() {
