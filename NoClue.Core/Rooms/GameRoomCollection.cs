@@ -18,7 +18,7 @@ namespace NoClue.Core.Rooms {
         }
 
         public async Task TryCreate(WebSocket webSocket) {
-            List<byte> bytes = new List<byte>() { 0, 0, 0, 1 };
+            List<byte> bytes = new List<byte>() { 0, 0, 0, 0 };
 
             int? code = GetUniqueCode();
             if (!code.HasValue) {
@@ -38,7 +38,7 @@ namespace NoClue.Core.Rooms {
         }
 
         public async Task TryJoin(int code, WebSocket webSocket) {
-            List<byte> bytes = new List<byte>() { 0, 0, 0, 2 };
+            List<byte> bytes = new List<byte>() { 0, 0, 0, 1 };
 
             if (!Rooms.TryGetValue(code, out GameRoom room)) {
                 bytes.Add((byte)RoomJoinReason.ROOM_NOT_FOUND);
