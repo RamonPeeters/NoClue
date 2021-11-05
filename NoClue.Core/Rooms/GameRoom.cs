@@ -1,5 +1,6 @@
 ﻿using NoClue.Core.WebSockets;
 using System;
+using System.IO;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ namespace NoClue.Core.Rooms {
     public class GameRoom {
         private readonly WebSocketCollection Connections = new WebSocketCollection();
         private readonly Guid Owner;
+        private bool GameStarted;
 
         private GameRoom(WebSocket creator) {
             Owner = Connections.AddWebSocket(creator);
@@ -43,6 +45,57 @@ namespace NoClue.Core.Rooms {
                 Connections.TryRemoveWebSocket(origin, out WebSocket webSocket);
                 await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
                 return;
+            }
+            if (result.MessageType == WebSocketMessageType.Binary) {
+                await HandlePacket(origin, buffer);
+            }
+        }
+
+        private async Task HandlePacket(Guid origin, byte[] buffer) {
+            using MemoryStream memoryStream = new MemoryStream(buffer);
+            using ProtocolBinaryReader reader = new ProtocolBinaryReader(memoryStream);
+
+            int id = reader.ReadInt();
+            if (id == 3) {
+                await TryStartGame(origin);
+            }
+        }
+
+        private async Task<bool> TryStartGame(Guid origin) {
+            if (GameStarted) {
+                return false;
+            }
+
+            WebSocket webSocket = Connections[origin];
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(4);
+
+            if (Owner != origin) {
+                writer.WriteBoolean(false);
+                await Protocol.SendMessage(webSocket, writer.ToArray());
+                return false;
+            }
+
+            writer.WriteBoolean(true);
+            await Protocol.SendMessage(webSocket, writer.ToArray());
+            await StartGame();
+
+            return true;
+        }
+
+        private async Task StartGame() {
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(5);
+            await SendGlobalMessage(writer);
+            GameStarted = true;
+        }
+
+        private async Task SendGlobalMessage(ProtocolBinaryWriter writer) {
+            byte[] data = writer.ToArray();
+            foreach (WebSocket webSocket in Connections) {
+                await Protocol.SendMessage(webSocket, data);
             }
         }
     }
