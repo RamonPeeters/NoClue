@@ -1,4 +1,5 @@
-﻿using NoClue.Core.WebSockets;
+﻿using NoClue.Core.Cards;
+using NoClue.Core.WebSockets;
 using System;
 using System.IO;
 using System.Net.WebSockets;
@@ -10,6 +11,7 @@ namespace NoClue.Core.Rooms {
         private readonly WebSocketCollection Connections = new WebSocketCollection();
         private readonly Guid Owner;
         private bool GameStarted;
+        private NoClueAnswer Answer;
 
         private GameRoom(WebSocket creator) {
             Owner = Connections.AddWebSocket(creator);
@@ -56,7 +58,7 @@ namespace NoClue.Core.Rooms {
             using ProtocolBinaryReader reader = new ProtocolBinaryReader(memoryStream);
 
             int id = reader.ReadInt();
-            if (id == 3) {
+            if (id == 2) {
                 await TryStartGame(origin);
             }
         }
@@ -69,7 +71,7 @@ namespace NoClue.Core.Rooms {
             WebSocket webSocket = Connections[origin];
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
-            writer.WriteInt(4);
+            writer.WriteInt(3);
 
             if (Owner != origin) {
                 writer.WriteBoolean(false);
@@ -87,9 +89,20 @@ namespace NoClue.Core.Rooms {
         private async Task StartGame() {
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
-            writer.WriteInt(5);
+            writer.WriteInt(4);
             await SendGlobalMessage(writer);
             GameStarted = true;
+
+            await DivideCards();
+        }
+
+        private async Task DivideCards() {
+            Random random = new Random();
+            CardCollection<SuspectCard> suspects = SuspectCard.GetAllSuspectCards();
+            CardCollection<WeaponCard> weapons = WeaponCard.GetAllWeaponCards();
+            CardCollection<RoomCard> rooms = RoomCard.GetAllRoomCards();
+
+            Answer = new NoClueAnswer(suspects.SelectRandom(random), weapons.SelectRandom(random), rooms.SelectRandom(random));
         }
 
         private async Task SendGlobalMessage(ProtocolBinaryWriter writer) {
