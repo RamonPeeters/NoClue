@@ -13,6 +13,7 @@ namespace NoClue.Core.Rooms {
         private readonly Guid Owner;
         private bool GameStarted;
         private NoClueAnswer Answer;
+        private Guid? CurrentPlayer = null;
 
         private GameRoom(WebSocket creator) {
             Owner = Players.AddPlayer(new Player(creator));
@@ -62,6 +63,9 @@ namespace NoClue.Core.Rooms {
             if (id == 2) {
                 await TryStartGame(origin);
             }
+            if (id == 7) {
+                await TryRollDice(origin);
+            }
         }
 
         private async Task<bool> TryStartGame(Guid origin) {
@@ -87,6 +91,22 @@ namespace NoClue.Core.Rooms {
             return true;
         }
 
+        private async Task TryRollDice(Guid origin) {
+            if (!MayRollDice(origin)) {
+                return;
+            }
+            Random random = new Random();
+            int firstDieRoll = random.Next(6) + 1;
+            int secondDieRoll = random.Next(6) + 1;
+
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(8);
+            writer.WriteInt(firstDieRoll);
+            writer.WriteInt(secondDieRoll);
+            await SendGlobalMessage(writer);
+        }
+
         private async Task StartGame() {
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
@@ -95,6 +115,8 @@ namespace NoClue.Core.Rooms {
             GameStarted = true;
 
             await DivideCards();
+            CurrentPlayer = Owner;
+            await SelectPlayer();
         }
 
         private async Task DivideCards() {
@@ -108,14 +130,24 @@ namespace NoClue.Core.Rooms {
             CardCollection<Card> remainingCards = new CardCollection<Card>().Merge(suspects).Merge(weapons).Merge(rooms);
             remainingCards.Shuffle(random);
 
-            using MemoryStream memoryStream = new MemoryStream();
-            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
-
             while (remainingCards.Count > 0) {
                 foreach (Player player in Players) {
                     await player.GiveCard(remainingCards.SelectRandom(random));
                 }
             }
+        }
+
+        private async Task SelectPlayer() {
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(6);
+
+            WebSocket webSocket = Players[CurrentPlayer.Value].GetWebSocket();
+            await Protocol.SendMessage(webSocket, writer.ToArray());
+        }
+
+        private bool MayRollDice(Guid origin) {
+            return CurrentPlayer == origin;
         }
 
         private async Task SendGlobalMessage(ProtocolBinaryWriter writer) {
