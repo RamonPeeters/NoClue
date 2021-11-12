@@ -43,6 +43,10 @@ namespace NoClue.Core.Cards {
             return card;
         }
 
+        public void Shuffle(Random random) {
+            Cards.Shuffle(random);
+        }
+
         public CardCollection<T> Merge(IEnumerable<T> other) {
             Cards.AddRange(other);
             return this;

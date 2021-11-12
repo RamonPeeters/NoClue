@@ -1,4 +1,5 @@
 ﻿using NoClue.Core.Cards;
+using NoClue.Core.Players;
 using NoClue.Core.WebSockets;
 using System;
 using System.IO;
@@ -8,22 +9,22 @@ using System.Threading.Tasks;
 
 namespace NoClue.Core.Rooms {
     public class GameRoom {
-        private readonly WebSocketCollection Connections = new WebSocketCollection();
+        private readonly PlayerCollection Players = new PlayerCollection();
         private readonly Guid Owner;
         private bool GameStarted;
         private NoClueAnswer Answer;
 
         private GameRoom(WebSocket creator) {
-            Owner = Connections.AddWebSocket(creator);
+            Owner = Players.AddPlayer(new Player(creator));
         }
 
         public RoomJoinReason TryJoin(WebSocket webSocket, out Guid origin) {
-            if (Connections.Count == 6) {
+            if (Players.Count == 6) {
                 origin = Guid.Empty;
                 return RoomJoinReason.ROOM_FULL;
             }
 
-            origin = Connections.AddWebSocket(webSocket);
+            origin = Players.AddPlayer(new Player(webSocket));
             return RoomJoinReason.SUCCESS;
         }
 
@@ -44,8 +45,8 @@ namespace NoClue.Core.Rooms {
 
         private async Task HandleMessage(Guid origin, WebSocketReceiveResult result, byte[] buffer) {
             if (result.MessageType == WebSocketMessageType.Close) {
-                Connections.TryRemoveWebSocket(origin, out WebSocket webSocket);
-                await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
+                Players.TryRemovePlayer(origin, out Player player);
+                await player.GetWebSocket().CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
                 return;
             }
             if (result.MessageType == WebSocketMessageType.Binary) {
@@ -68,7 +69,7 @@ namespace NoClue.Core.Rooms {
                 return false;
             }
 
-            WebSocket webSocket = Connections[origin];
+            WebSocket webSocket = Players[origin].GetWebSocket();
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
             writer.WriteInt(3);
@@ -103,12 +104,24 @@ namespace NoClue.Core.Rooms {
             CardCollection<RoomCard> rooms = RoomCard.GetAllRoomCards();
 
             Answer = new NoClueAnswer(suspects.SelectRandom(random), weapons.SelectRandom(random), rooms.SelectRandom(random));
+            Console.WriteLine(Answer);
+            CardCollection<Card> remainingCards = new CardCollection<Card>().Merge(suspects).Merge(weapons).Merge(rooms);
+            remainingCards.Shuffle(random);
+
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+
+            while (remainingCards.Count > 0) {
+                foreach (Player player in Players) {
+                    await player.GiveCard(remainingCards.SelectRandom(random));
+                }
+            }
         }
 
         private async Task SendGlobalMessage(ProtocolBinaryWriter writer) {
             byte[] data = writer.ToArray();
-            foreach (WebSocket webSocket in Connections) {
-                await Protocol.SendMessage(webSocket, data);
+            foreach (Player player in Players) {
+                await Protocol.SendMessage(player.GetWebSocket(), data);
             }
         }
     }
