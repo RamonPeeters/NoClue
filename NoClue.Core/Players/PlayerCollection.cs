@@ -5,7 +5,8 @@ using System.Collections.Generic;
 
 namespace NoClue.Core.Players {
     internal class PlayerCollection : IEnumerable<Player> {
-        private readonly ConcurrentDictionary<Guid, Player> Players = new ConcurrentDictionary<Guid, Player>();
+        private int CurrentId = -1;
+        private readonly ConcurrentDictionary<int, Player> Players = new ConcurrentDictionary<int, Player>();
 
         public int Count {
             get {
@@ -13,9 +14,9 @@ namespace NoClue.Core.Players {
             }
         }
 
-        public Player this[Guid uuid] {
+        public Player this[int id] {
             get {
-                return Players[uuid];
+                return Players[id];
             }
         }
 
@@ -29,14 +30,14 @@ namespace NoClue.Core.Players {
             return GetEnumerator();
         }
 
-        public Guid AddPlayer(Player player) {
-            Guid uuid = Guid.NewGuid();
-            Players.TryAdd(uuid, player);
-            return uuid;
+        public int AddPlayer(Player player) {
+            CurrentId++;
+            Players.TryAdd(CurrentId, player);
+            return CurrentId;
         }
 
-        public bool TryRemovePlayer(Guid uuid, out Player result) {
-            return Players.TryRemove(uuid, out result);
+        public bool TryRemovePlayer(int id, out Player result) {
+            return Players.TryRemove(id, out result);
         }
     }
 }

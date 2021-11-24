@@ -27,14 +27,14 @@ namespace NoClue.Core.Rooms {
                 return;
             }
 
-            GameRoom room = GameRoom.Create(webSocket, out Guid owner);
+            GameRoom room = GameRoom.Create(webSocket, out int playerId);
             Rooms.Add(code.Value, room);
             bytes.Add(1);
             for (int i = 0; i < 4; i++) {
                 bytes.Add((byte)(code.Value >> ((3 - i) * 8) & 0xFF));
             }
             await Protocol.SendMessage(webSocket, bytes.ToArray());
-            await room.ReceiveMessage(owner, webSocket);
+            await room.ReceiveMessage(playerId, webSocket);
         }
 
         public async Task TryJoin(int code, WebSocket webSocket) {
@@ -46,12 +46,12 @@ namespace NoClue.Core.Rooms {
                 return;
             }
 
-            RoomJoinReason reason = room.TryJoin(webSocket, out Guid origin);
+            RoomJoinReason reason = room.TryJoin(webSocket, out int playerId);
             bytes.Add((byte)reason);
             await Protocol.SendMessage(webSocket, bytes.ToArray());
 
             if (reason == RoomJoinReason.SUCCESS) {
-                await room.ReceiveMessage(origin, webSocket);
+                await room.ReceiveMessage(playerId, webSocket);
             } else {
                 await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Unable to join room", CancellationToken.None);
             }

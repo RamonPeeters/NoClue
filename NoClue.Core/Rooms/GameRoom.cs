@@ -12,76 +12,76 @@ using System.Threading.Tasks;
 namespace NoClue.Core.Rooms {
     public class GameRoom {
         private readonly PlayerCollection Players = new PlayerCollection();
-        private readonly Guid Owner;
+        private readonly int Owner;
         private bool GameStarted;
         private NoClueAnswer Answer;
-        private Guid? CurrentPlayer = null;
+        private int? CurrentPlayer = null;
         private Board Board;
 
         private GameRoom(WebSocket creator) {
             Owner = Players.AddPlayer(new Player(creator));
         }
 
-        public RoomJoinReason TryJoin(WebSocket webSocket, out Guid origin) {
+        public RoomJoinReason TryJoin(WebSocket webSocket, out int playerId) {
             if (Players.Count == 6) {
-                origin = Guid.Empty;
+                playerId = -1;
                 return RoomJoinReason.ROOM_FULL;
             }
 
-            origin = Players.AddPlayer(new Player(webSocket));
+            playerId = Players.AddPlayer(new Player(webSocket));
             return RoomJoinReason.SUCCESS;
         }
 
-        public async Task ReceiveMessage(Guid origin, WebSocket webSocket) {
+        public async Task ReceiveMessage(int playerId, WebSocket webSocket) {
             byte[] buffer = new byte[1024 * 4];
 
             while (webSocket.State == WebSocketState.Open) {
                 WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                await HandleMessage(origin, result, buffer);
+                await HandleMessage(playerId, result, buffer);
             }
         }
 
-        public static GameRoom Create(WebSocket creator, out Guid owner) {
+        public static GameRoom Create(WebSocket creator, out int owner) {
             GameRoom room = new GameRoom(creator);
             owner = room.Owner;
             return room;
         }
 
-        private async Task HandleMessage(Guid origin, WebSocketReceiveResult result, byte[] buffer) {
+        private async Task HandleMessage(int playerId, WebSocketReceiveResult result, byte[] buffer) {
             if (result.MessageType == WebSocketMessageType.Close) {
-                Players.TryRemovePlayer(origin, out Player player);
+                Players.TryRemovePlayer(playerId, out Player player);
                 await player.GetWebSocket().CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
                 return;
             }
             if (result.MessageType == WebSocketMessageType.Binary) {
-                await HandlePacket(origin, buffer);
+                await HandlePacket(playerId, buffer);
             }
         }
 
-        private async Task HandlePacket(Guid origin, byte[] buffer) {
+        private async Task HandlePacket(int playerId, byte[] buffer) {
             using MemoryStream memoryStream = new MemoryStream(buffer);
             using ProtocolBinaryReader reader = new ProtocolBinaryReader(memoryStream);
 
             int id = reader.ReadInt();
             if (id == 2) {
-                await TryStartGame(origin);
+                await TryStartGame(playerId);
             }
             if (id == 7) {
-                await TryRollDice(origin);
+                await TryRollDice(playerId);
             }
         }
 
-        private async Task<bool> TryStartGame(Guid origin) {
+        private async Task<bool> TryStartGame(int playerId) {
             if (GameStarted) {
                 return false;
             }
 
-            WebSocket webSocket = Players[origin].GetWebSocket();
+            WebSocket webSocket = Players[playerId].GetWebSocket();
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
             writer.WriteInt(3);
 
-            if (Owner != origin) {
+            if (Owner != playerId) {
                 writer.WriteBoolean(false);
                 await Protocol.SendMessage(webSocket, writer.ToArray());
                 return false;
@@ -94,8 +94,8 @@ namespace NoClue.Core.Rooms {
             return true;
         }
 
-        private async Task TryRollDice(Guid origin) {
-            if (!MayRollDice(origin)) {
+        private async Task TryRollDice(int playerId) {
+            if (!MayRollDice(playerId)) {
                 return;
             }
             Random random = new Random();
@@ -109,7 +109,7 @@ namespace NoClue.Core.Rooms {
             writer.WriteInt(secondDieRoll);
             await SendGlobalMessage(writer);
             Dictionary<BoardPosition, int> positions = Board.Traverse(firstDieRoll + secondDieRoll, new BoardPosition(6, 6));
-            await SendAvailableSpaces(origin, positions);
+            await SendAvailableSpaces(playerId, positions);
         }
 
         private async Task StartGame() {
@@ -152,17 +152,17 @@ namespace NoClue.Core.Rooms {
             await Protocol.SendMessage(webSocket, writer.ToArray());
         }
 
-        private bool MayRollDice(Guid origin) {
-            return CurrentPlayer == origin;
+        private bool MayRollDice(int playerId) {
+            return CurrentPlayer == playerId;
         }
 
-        private async Task SendAvailableSpaces(Guid origin, Dictionary<BoardPosition, int> positions) {
+        private async Task SendAvailableSpaces(int playerId, Dictionary<BoardPosition, int> positions) {
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
             writer.WriteInt(9);
             int[] actualPositions = Util.GetArrayFromPositions(positions.Keys);
             writer.WriteIntArray(actualPositions);
-            WebSocket webSocket = Players[origin].GetWebSocket();
+            WebSocket webSocket = Players[playerId].GetWebSocket();
             await Protocol.SendMessage(webSocket, writer.ToArray());
         }
 
