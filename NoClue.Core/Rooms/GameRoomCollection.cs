@@ -1,6 +1,7 @@
 ﻿using NoClue.Core.WebSockets;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.WebSockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,22 +19,23 @@ namespace NoClue.Core.Rooms {
         }
 
         public async Task TryCreate(WebSocket webSocket) {
-            List<byte> bytes = new List<byte>() { 0, 0, 0, 0 };
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(0);
 
             int? code = GetUniqueCode();
             if (!code.HasValue) {
-                bytes.Add(0);
-                await Protocol.SendClosingMessage(webSocket, bytes.ToArray(), "Unable to create room");
+                writer.WriteBoolean(false);
+                await Protocol.SendClosingMessage(webSocket, writer.ToArray(), "Unable to create room");
                 return;
             }
 
             GameRoom room = GameRoom.Create(webSocket, out int playerId);
             Rooms.Add(code.Value, room);
-            bytes.Add(1);
-            for (int i = 0; i < 4; i++) {
-                bytes.Add((byte)(code.Value >> ((3 - i) * 8) & 0xFF));
-            }
-            await Protocol.SendMessage(webSocket, bytes.ToArray());
+            writer.WriteBoolean(true);
+            writer.WriteInt(code.Value);
+            writer.WriteInt(playerId);
+            await Protocol.SendMessage(webSocket, writer.ToArray());
             await room.ReceiveMessage(playerId, webSocket);
         }
 
