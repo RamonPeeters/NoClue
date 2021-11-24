@@ -1,7 +1,9 @@
-﻿using NoClue.Core.Cards;
+﻿using NoClue.Core.Boards;
+using NoClue.Core.Cards;
 using NoClue.Core.Players;
 using NoClue.Core.WebSockets;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
 using System.Threading;
@@ -14,6 +16,7 @@ namespace NoClue.Core.Rooms {
         private bool GameStarted;
         private NoClueAnswer Answer;
         private Guid? CurrentPlayer = null;
+        private Board Board;
 
         private GameRoom(WebSocket creator) {
             Owner = Players.AddPlayer(new Player(creator));
@@ -105,6 +108,8 @@ namespace NoClue.Core.Rooms {
             writer.WriteInt(firstDieRoll);
             writer.WriteInt(secondDieRoll);
             await SendGlobalMessage(writer);
+            Dictionary<BoardPosition, int> positions = Board.Traverse(firstDieRoll + secondDieRoll, new BoardPosition(6, 6));
+            await SendAvailableSpaces(origin, positions);
         }
 
         private async Task StartGame() {
@@ -113,6 +118,7 @@ namespace NoClue.Core.Rooms {
             writer.WriteInt(4);
             await SendGlobalMessage(writer);
             GameStarted = true;
+            Board = new Board();
 
             await DivideCards();
             CurrentPlayer = Owner;
@@ -148,6 +154,16 @@ namespace NoClue.Core.Rooms {
 
         private bool MayRollDice(Guid origin) {
             return CurrentPlayer == origin;
+        }
+
+        private async Task SendAvailableSpaces(Guid origin, Dictionary<BoardPosition, int> positions) {
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(9);
+            int[] actualPositions = Util.GetArrayFromPositions(positions.Keys);
+            writer.WriteIntArray(actualPositions);
+            WebSocket webSocket = Players[origin].GetWebSocket();
+            await Protocol.SendMessage(webSocket, writer.ToArray());
         }
 
         private async Task SendGlobalMessage(ProtocolBinaryWriter writer) {

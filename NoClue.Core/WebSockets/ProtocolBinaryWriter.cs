@@ -47,6 +47,13 @@ namespace NoClue.Core.WebSockets {
             WriteInt((int)value);
         }
 
+        public void WriteIntArray(int[] values) {
+            WriteInt(values.Length);
+            for (int i = 0; i < values.Length; i++) {
+                WriteInt(values[i]);
+            }
+        }
+
         private void WriteBuffer(int length) {
             Stream.Write(Buffer, 0, length);
         }
