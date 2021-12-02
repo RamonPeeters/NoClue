@@ -180,6 +180,7 @@ namespace NoClue.Core.Rooms {
 
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(11);
             WebSocket webSocket = Players[playerId].GetWebSocket();
             if (!AvailablePositions.ContainsKey(boardPosition)) {
                 writer.WriteBoolean(false);
