@@ -17,6 +17,7 @@ namespace NoClue.Core.Rooms {
         private NoClueAnswer Answer;
         private int? CurrentPlayer = null;
         private Board Board;
+        private Dictionary<BoardPosition, int> AvailablePositions;
 
         private GameRoom(WebSocket creator) {
             Owner = Players.AddPlayer(new Player(creator));
@@ -69,6 +70,9 @@ namespace NoClue.Core.Rooms {
             if (id == 7) {
                 await TryRollDice(playerId);
             }
+            if (id == 10) {
+                await TrySelectSpace(playerId, reader);
+            }
         }
 
         private async Task<bool> TryStartGame(int playerId) {
@@ -108,8 +112,8 @@ namespace NoClue.Core.Rooms {
             writer.WriteInt(firstDieRoll);
             writer.WriteInt(secondDieRoll);
             await SendGlobalMessage(writer);
-            Dictionary<BoardPosition, int> positions = Board.Traverse(firstDieRoll + secondDieRoll, new BoardPosition(6, 6));
-            await SendAvailableSpaces(playerId, positions);
+            AvailablePositions = Board.Traverse(firstDieRoll + secondDieRoll, new BoardPosition(6, 6));
+            await SendAvailableSpaces(playerId);
         }
 
         private async Task StartGame() {
@@ -156,13 +160,33 @@ namespace NoClue.Core.Rooms {
             return CurrentPlayer == playerId;
         }
 
-        private async Task SendAvailableSpaces(int playerId, Dictionary<BoardPosition, int> positions) {
+        private async Task SendAvailableSpaces(int playerId) {
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
             writer.WriteInt(9);
-            int[] actualPositions = Util.GetArrayFromPositions(positions.Keys);
+            int[] actualPositions = Util.GetArrayFromPositions(AvailablePositions.Keys);
             writer.WriteIntArray(actualPositions);
             WebSocket webSocket = Players[playerId].GetWebSocket();
+            await Protocol.SendMessage(webSocket, writer.ToArray());
+        }
+
+        private async Task TrySelectSpace(int playerId, ProtocolBinaryReader reader) {
+            if (playerId != CurrentPlayer) {
+                return;
+            }
+            int x = reader.ReadInt();
+            int y = reader.ReadInt();
+            BoardPosition boardPosition = new BoardPosition(x, y);
+
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            WebSocket webSocket = Players[playerId].GetWebSocket();
+            if (!AvailablePositions.ContainsKey(boardPosition)) {
+                writer.WriteBoolean(false);
+                await Protocol.SendMessage(webSocket, writer.ToArray());
+                return;
+            }
+            writer.WriteBoolean(true);
             await Protocol.SendMessage(webSocket, writer.ToArray());
         }
 
