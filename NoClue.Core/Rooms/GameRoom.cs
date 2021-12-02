@@ -190,12 +190,25 @@ namespace NoClue.Core.Rooms {
             writer.WriteBoolean(true);
             await Protocol.SendMessage(webSocket, writer.ToArray());
             await SendSelectedSpace(boardPosition);
+            await MoveToPosition(playerId, boardPosition);
         }
 
         private async Task SendSelectedSpace(BoardPosition position) {
             using MemoryStream memoryStream = new MemoryStream();
             using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
             writer.WriteInt(12);
+            writer.WriteInt(position.X);
+            writer.WriteInt(position.Y);
+            await SendGlobalMessage(writer);
+        }
+
+        private async Task MoveToPosition(int playerId, BoardPosition position) {
+            Board.OccupyCell(playerId, position);
+
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(13);
+            writer.WriteInt(playerId);
             writer.WriteInt(position.X);
             writer.WriteInt(position.Y);
             await SendGlobalMessage(writer);

@@ -16,11 +16,20 @@ namespace NoClue.Core.Boards {
             { BoardCell.Wall(), BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Floor(), BoardCell.Floor(), BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Door(),  BoardCell.Wall(),  BoardCell.Wall() },
             { BoardCell.Wall(), BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Door(),  BoardCell.Floor(), BoardCell.Floor(), BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Wall() }
         };
+        private readonly Dictionary<int, BoardPosition> PlayerLocations = new Dictionary<int, BoardPosition>();
 
         public BoardCell this[BoardPosition boardPosition] {
             get {
                 return Cells[boardPosition.X, boardPosition.Y];
             }
+        }
+
+        public bool OccupyCell(int playerId, BoardPosition position) {
+            if (!InBoundaries(position)) {
+                return false;
+            }
+            PlayerLocations[playerId] = position;
+            return true;
         }
 
         private IEnumerable<BoardPosition> GetNeighborPositions(BoardPosition boardPosition) {
