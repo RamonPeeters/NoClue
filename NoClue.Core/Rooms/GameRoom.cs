@@ -1,4 +1,5 @@
 ﻿using NoClue.Core.Boards;
+using NoClue.Core.Boards.Rooms;
 using NoClue.Core.Cards;
 using NoClue.Core.Players;
 using NoClue.Core.WebSockets;
@@ -191,6 +192,10 @@ namespace NoClue.Core.Rooms {
             await Protocol.SendMessage(webSocket, writer.ToArray());
             await SendSelectedSpace(boardPosition);
             await MoveToPosition(playerId, boardPosition);
+            if (Board.TryGetRoom(boardPosition, out RoomType roomType)) {
+                await SendPlayerEnteredRoom(playerId, roomType);
+                await EnableCardSelection(playerId, roomType);
+            }
         }
 
         private async Task SendSelectedSpace(BoardPosition position) {
@@ -212,6 +217,24 @@ namespace NoClue.Core.Rooms {
             writer.WriteInt(position.X);
             writer.WriteInt(position.Y);
             await SendGlobalMessage(writer);
+        }
+
+        private async Task SendPlayerEnteredRoom(int playerId, RoomType roomType) {
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(15);
+            writer.WriteInt(playerId);
+            writer.WriteInt((int)roomType);
+            await SendGlobalMessage(writer);
+        }
+
+        private async Task EnableCardSelection(int playerId, RoomType roomType) {
+            using MemoryStream memoryStream = new MemoryStream();
+            using ProtocolBinaryWriter writer = new ProtocolBinaryWriter(memoryStream);
+            writer.WriteInt(16);
+            writer.WriteInt((int)roomType);
+            WebSocket webSocket = Players[playerId].GetWebSocket();
+            await Protocol.SendMessage(webSocket, writer.ToArray());
         }
 
         private async Task SendGlobalMessage(ProtocolBinaryWriter writer) {
