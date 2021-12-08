@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 
 namespace NoClue.Core.Boards {
-    internal class Board {
+    public class Board {
         private readonly BoardCell[,] Cells = new BoardCell[12, 12] {
             { BoardCell.Wall(), BoardCell.Wall(),  BoardCell.Floor(), BoardCell.Floor(), BoardCell.Door(RoomType.DINING_ROOM),  BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Door(RoomType.DINING_ROOM),  BoardCell.Wall(),  BoardCell.Wall(),  BoardCell.Wall() },
             { BoardCell.Wall(), BoardCell.Wall(),  BoardCell.Floor(), BoardCell.Floor(), BoardCell.Floor(), BoardCell.Floor(), BoardCell.Floor(), BoardCell.Floor(), BoardCell.Floor(), BoardCell.Floor(), BoardCell.Door(RoomType.LOUNGE),  BoardCell.Wall() },

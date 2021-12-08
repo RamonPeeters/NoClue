@@ -1,7 +1,7 @@
 ﻿using System;
 
 namespace NoClue.Core.Boards {
-    internal struct BoardPosition : IEquatable<BoardPosition> {
+    public struct BoardPosition : IEquatable<BoardPosition> {
         public int X { get; }
         public int Y { get; }
 

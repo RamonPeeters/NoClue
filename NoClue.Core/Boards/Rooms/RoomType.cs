@@ -1,5 +1,5 @@
 ﻿namespace NoClue.Core.Boards.Rooms {
-    internal enum RoomType {
+    public enum RoomType {
         HALL,
         LOUNGE,
         DINING_ROOM,

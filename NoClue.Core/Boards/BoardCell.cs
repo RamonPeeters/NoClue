@@ -1,7 +1,7 @@
 ﻿using NoClue.Core.Boards.Rooms;
 
 namespace NoClue.Core.Boards {
-    internal class BoardCell {
+    public class BoardCell {
         public BoardCellType Type { get; }
         public RoomType? RoomType { get; }
 

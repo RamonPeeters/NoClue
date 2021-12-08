@@ -1,5 +1,5 @@
 ﻿namespace NoClue.Core.Boards {
-    internal enum BoardCellType {
+    public enum BoardCellType {
         FLOOR,
         WALL,
         DOOR
