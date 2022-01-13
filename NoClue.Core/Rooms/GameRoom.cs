@@ -17,6 +17,7 @@ namespace NoClue.Core.Rooms {
         private bool GameStarted;
         private NoClueAnswer Answer;
         private int? CurrentPlayer = null;
+        private bool RolledDice = false;
         private Board Board;
         private Dictionary<BoardPosition, int> AvailablePositions;
 
@@ -113,6 +114,7 @@ namespace NoClue.Core.Rooms {
             writer.WriteInt(firstDieRoll);
             writer.WriteInt(secondDieRoll);
             await SendGlobalMessage(writer);
+            RolledDice = true;
             AvailablePositions = Board.Traverse(firstDieRoll + secondDieRoll, new BoardPosition(6, 6));
             await SendAvailableSpaces(playerId);
         }
@@ -158,7 +160,7 @@ namespace NoClue.Core.Rooms {
         }
 
         private bool MayRollDice(int playerId) {
-            return CurrentPlayer == playerId;
+            return CurrentPlayer == playerId && !RolledDice;
         }
 
         private async Task SendAvailableSpaces(int playerId) {
